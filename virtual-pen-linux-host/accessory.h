@@ -13,5 +13,6 @@ typedef struct _accessoryEventData{
 } AccessoryEventData;
 void printRawInputData(array<string, 5> * strs);
 array<string, 5> readUntilDelimiter(unsigned char* a, int size);
+bool parseAccessoryEventDataLine(const string &line, AccessoryEventData * accessoryEventData);
 
 #endif // ACCESSORY_H

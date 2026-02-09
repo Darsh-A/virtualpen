@@ -25,5 +25,6 @@ const int EC_MSC_TIMESTAMP = 0x05;
 
 const int PEN_TOOL_TYPE = 2;
 const int ERASER_TOOL_TYPE = 4;
+const int FINGER_TOOL_TYPE = 1;
 
 #endif // CONSTANTS_H
