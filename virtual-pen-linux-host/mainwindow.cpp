@@ -3,13 +3,16 @@
 #include "./ui_udevdialog.h"
 #include <linux/uinput.h>
 #include <unistd.h>
-#include <unistd.h>
 #include <QStyleFactory>
 #include <QDialog>
 #include <QMessageBox>
+#include <QMetaObject>
 #include <QtConcurrent/QtConcurrent>
 #include <QDesktopServices>
+#include <arpa/inet.h>
 #include <libusb-1.0/libusb.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include "linux-adk.h"
 #include "virtualstylus.h"
 using namespace QtConcurrent;
@@ -32,6 +35,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     ui->deviceXSize->setValidator(new QIntValidator(1, max_device_size, this));
     ui->deviceYSize->setValidator(new QIntValidator(1, max_device_size, this));
+    ui->wifiPortInput->setValidator(new QIntValidator(1, 65535, this));
+    ui->wifiPortInput->setText(getSetting(wifi_port_setting_key, QVariant::fromValue(4545)).toString());
     initDisplayStyles();
     libUsbContext = libusb_init(NULL);
     updateUsbConnectButton();
@@ -42,6 +47,75 @@ void MainWindow::captureStylusInput(){
     VirtualStylus* virtualStylus = new VirtualStylus(displayScreenTranslator, pressureTranslator);
     virtualStylus->initializeStylus();
     capture(selectedDevice, virtualStylus);
+}
+
+void MainWindow::captureWifiInput(int port){
+    VirtualStylus* virtualStylus = new VirtualStylus(displayScreenTranslator, pressureTranslator);
+    virtualStylus->initializeStylus();
+    int serverFd = socket(AF_INET, SOCK_STREAM, 0);
+    if(serverFd < 0){
+        wifiRunning.store(false);
+        QMetaObject::invokeMethod(ui->connectionStatusLabel, "setText", Qt::QueuedConnection,
+                                  Q_ARG(QString, QString::fromUtf8("WiFi Error")));
+        QMetaObject::invokeMethod(this, [this]() { updateUsbConnectButton(); }, Qt::QueuedConnection);
+        return;
+    }
+    int reuse = 1;
+    setsockopt(serverFd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(static_cast<uint16_t>(port));
+    if(bind(serverFd, reinterpret_cast<sockaddr*>(&address), sizeof(address)) < 0){
+        ::close(serverFd);
+        wifiRunning.store(false);
+        QMetaObject::invokeMethod(ui->connectionStatusLabel, "setText", Qt::QueuedConnection,
+                                  Q_ARG(QString, QString::fromUtf8("WiFi Error")));
+        QMetaObject::invokeMethod(this, [this]() { updateUsbConnectButton(); }, Qt::QueuedConnection);
+        return;
+    }
+    if(listen(serverFd, 1) < 0){
+        ::close(serverFd);
+        wifiRunning.store(false);
+        QMetaObject::invokeMethod(ui->connectionStatusLabel, "setText", Qt::QueuedConnection,
+                                  Q_ARG(QString, QString::fromUtf8("WiFi Error")));
+        QMetaObject::invokeMethod(this, [this]() { updateUsbConnectButton(); }, Qt::QueuedConnection);
+        return;
+    }
+
+    while(wifiRunning.load()){
+        int clientFd = accept(serverFd, nullptr, nullptr);
+        if(clientFd < 0){
+            continue;
+        }
+        QMetaObject::invokeMethod(ui->connectionStatusLabel, "setText", Qt::QueuedConnection,
+                                  Q_ARG(QString, QString::fromUtf8("WiFi Connected!")));
+        std::string pending;
+        AccessoryEventData accessoryEventData{};
+        char buffer[1024];
+        while(wifiRunning.load()){
+            ssize_t bytesRead = recv(clientFd, buffer, sizeof(buffer), 0);
+            if(bytesRead <= 0){
+                break;
+            }
+            pending.append(buffer, buffer + bytesRead);
+            size_t newlinePos = 0;
+            while((newlinePos = pending.find('\n')) != std::string::npos){
+                std::string line = pending.substr(0, newlinePos);
+                pending.erase(0, newlinePos + 1);
+                if(parseAccessoryEventDataLine(line, &accessoryEventData)){
+                    virtualStylus->handleAccessoryEventData(&accessoryEventData);
+                }
+            }
+        }
+        ::close(clientFd);
+        QMetaObject::invokeMethod(ui->connectionStatusLabel, "setText", Qt::QueuedConnection,
+                                  Q_ARG(QString, QString::fromUtf8("WiFi Listening...")));
+    }
+    ::close(serverFd);
+    wifiRunning.store(false);
+    QMetaObject::invokeMethod(this, [this]() { updateUsbConnectButton(); }, Qt::QueuedConnection);
+    delete virtualStylus;
 }
 
 void MainWindow::populateUsbDevicesList(){
@@ -73,8 +147,15 @@ bool MainWindow::canConnectUsb(){
     }
 }
 
+bool MainWindow::canStartWifi(){
+    return ui->deviceXSize->hasAcceptableInput() &&
+           ui->deviceYSize->hasAcceptableInput() &&
+           ui->wifiPortInput->hasAcceptableInput();
+}
+
 void MainWindow::updateUsbConnectButton(){
     ui->connectUsbButton->setEnabled(canConnectUsb());
+    ui->startWifiButton->setEnabled(canStartWifi() && !wifiRunning.load());
 }
 
 
@@ -85,6 +166,15 @@ void MainWindow::on_connectUsbButton_clicked(){
     ui->connectUsbButton->setEnabled(false);
     ui->refreshUsbDevices->setEnabled(false);
     ui->usbDevicesListWidget->setEnabled(false);
+}
+
+void MainWindow::on_startWifiButton_clicked(){
+    displayUDevPermissionFixIfNeeded();
+    int port = ui->wifiPortInput->text().toInt();
+    wifiRunning.store(true);
+    QFuture<void> ignored = QtConcurrent::run([this, port] { return captureWifiInput(port); });
+    ui->connectionStatusLabel->setText(QString::fromUtf8("WiFi Listening..."));
+    updateUsbConnectButton();
 }
 
 void MainWindow::fetchUsbDevices(){
@@ -153,6 +243,12 @@ void MainWindow::on_deviceYSize_editingFinished()
     updateUsbConnectButton();
 }
 
+void MainWindow::on_wifiPortInput_editingFinished()
+{
+    setSetting(wifi_port_setting_key, ui->wifiPortInput->text().toInt());
+    updateUsbConnectButton();
+}
+
 void MainWindow::manageInputBoxStyle(QLineEdit * inputBox){
     if(inputBox->hasAcceptableInput()){
         inputBox->setStyleSheet("QLineEdit{border: 1px solid white}");
@@ -204,6 +300,7 @@ void MainWindow::loadDeviceConfig(){
     ui->pressureSensitivitySlider->setValue(pressureTranslator->sensitivity);
     ui->deviceXSize->setText(QString::number(displayScreenTranslator->size_x));
     ui->deviceYSize->setText(QString::number(displayScreenTranslator->size_y));
+    ui->wifiPortInput->setText(getSetting(wifi_port_setting_key, QVariant::fromValue(4545)).toString());
     on_deviceXSize_selectionChanged();
     on_deviceYSize_selectionChanged();
 }
@@ -283,7 +380,3 @@ MainWindow::~MainWindow()
     delete settings;
     delete filePermissionValidator;
 }
-
-
-
-

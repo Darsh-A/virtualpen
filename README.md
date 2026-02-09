@@ -8,10 +8,12 @@ What distinguishes this solution from others, is emphasis on low-latency to prov
 - Adjustable pen pressure threshold such that you can move the pen-cursor without triggering an unintended click/draw action
 - Adjustable pen pressure sensitivity such that you can customize the force needed to be applied
 - Eraser support
+- Touch input support
 - Switch between stretched and fixed display mode
   - In stretched mode, the android device screen is stretched and completely mapped to your PC primary screen. Note that this is required to fully reach the boundaries of your PC screen from your device but causes some slight distortion if the screen ratios (android vs PC) are not the same.
   - In fixed mode, if the android device screen resolution fits into your PC screen, it is centered and mapped on that latter screen at a 1:1 ratio. This mode should incurr no distortion.
 - Detect available usb devices and automatically save your settings for each
+- WiFi streaming support (direct TCP connection)
 - Supports both X11 and Wayland
 
 ![alt text](https://raw.githubusercontent.com/Mathieu-Beliveau/android-virtual-pen/main/android-virtual-pen-screenshot.png)
@@ -65,6 +67,8 @@ For the link to be fully establish, you need to start the virtual-pen app on you
 On the linux host, launch the Virtual Pen application, select your device (hit refresh if not shown) then enter the device's screen horizontal and vertical resolutions and then press "connect". Upon the first connection, Android should ask you to allow the Virtual Pen app to handle the connection - press ok. 
 Once this done, you should be able to use your pen and see your PC cursor move as intended.
 
+For WiFi connections, start the Linux host app and click "Start WiFi" with the desired port, then use the Android app to select WiFi, enter the host IP and port, and connect on the same network.
+
 Note that this software is still in beta stage and still ought to be tested with various devices.
 
 ## Building
@@ -93,5 +97,4 @@ Then peform the actual build through:
 
 This project was inspired by the very excellent [Weylus](https://github.com/H-M-H/Weylus) application and
 made significant use of the [Linux ADK](https://github.com/gibsson/linux-adk). Thanks to both devs and contributors!
-
 

@@ -6,6 +6,7 @@
 #include <QMap>
 #include <QMessageBox>
 #include <QtConcurrent/QtConcurrent>
+#include <atomic>
 #include "displayscreentranslator.h"
 #include "filepermissionvalidator.h"
 #include "pressuretranslator.h"
@@ -53,6 +54,10 @@ private slots:
 
     void on_connectUsbButton_2_clicked();
 
+    void on_startWifiButton_clicked();
+
+    void on_wifiPortInput_editingFinished();
+
 private:
     const QString setting_org = "com.github.androidvirtualpen";
     const QString setting_app = "virtualpen";
@@ -61,6 +66,7 @@ private:
     const string min_pressure_setting_key = "/min_pressure";
     const string pressure_sensitivity_setting_key = "/pressure_sensitivity";
     const string display_style_setting_key = "/display_style";
+    const string wifi_port_setting_key = "/wifi_port";
     QDialog * dialog;
     FilePermissionValidator * filePermissionValidator;
     const int max_device_size = 999999999;
@@ -81,12 +87,15 @@ private:
     void fetchUsbDevices();
     void populateUsbDevicesList();
     bool canConnectUsb();
+    bool canStartWifi();
     void updateUsbConnectButton();
+    void captureWifiInput(int port);
     void loadDeviceConfig();
     void manageInputBoxStyle(QLineEdit * inputBox);
     void displayUDevPermissionFixIfNeeded();
     void displayFixForUDevPermissions();
     bool canWriteToFile(QString path);
     bool canWriteToAnyUsbDevice();
+    std::atomic_bool wifiRunning{false};
 };
 #endif // MAINWINDOW_H
