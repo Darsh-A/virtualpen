@@ -12,3 +12,4 @@ cmake_install.cmake
 *.dm
 deb/virtual-pen-linux-host_0.1-1_amd64.deb
 deb/virtual-pen-linux-host_0.1-1_amd64/usr/bin/virtual-pen-linux-host
+build/
