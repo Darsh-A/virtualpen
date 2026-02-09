@@ -67,7 +67,7 @@ void MainWindow::captureWifiInput(int port){
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(static_cast<uint16_t>(port));
     if(bind(serverFd, reinterpret_cast<sockaddr*>(&address), sizeof(address)) < 0){
-        ::close(serverFd);
+        close(serverFd);
         wifiRunning.store(false);
         QMetaObject::invokeMethod(ui->connectionStatusLabel, "setText", Qt::QueuedConnection,
                                   Q_ARG(QString, QString::fromUtf8("WiFi Error")));
@@ -75,7 +75,7 @@ void MainWindow::captureWifiInput(int port){
         return;
     }
     if(listen(serverFd, 1) < 0){
-        ::close(serverFd);
+        close(serverFd);
         wifiRunning.store(false);
         QMetaObject::invokeMethod(ui->connectionStatusLabel, "setText", Qt::QueuedConnection,
                                   Q_ARG(QString, QString::fromUtf8("WiFi Error")));
@@ -108,11 +108,11 @@ void MainWindow::captureWifiInput(int port){
                 }
             }
         }
-        ::close(clientFd);
+        close(clientFd);
         QMetaObject::invokeMethod(ui->connectionStatusLabel, "setText", Qt::QueuedConnection,
                                   Q_ARG(QString, QString::fromUtf8("WiFi Listening...")));
     }
-    ::close(serverFd);
+    close(serverFd);
     wifiRunning.store(false);
     QMetaObject::invokeMethod(this, [this]() { updateUsbConnectButton(); }, Qt::QueuedConnection);
     delete virtualStylus;
