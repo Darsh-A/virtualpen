@@ -77,6 +77,51 @@ array<string, 5> readUntilDelimiter(unsigned char* dataBuffer, int size){
     return strs;
 }
 
+bool parseAccessoryEventDataLine(const string &line, AccessoryEventData * accessoryEventData){
+    array<string, 5> parts;
+    size_t start = 0;
+    int index = 0;
+    for(size_t i = 0; i < line.size() && index < 5; i++){
+        if(line[i] == ','){
+            parts[index] = line.substr(start, i - start);
+            start = i + 1;
+            index++;
+        }
+    }
+    if(index < 5){
+        return false;
+    }
+
+    char * endPtr = nullptr;
+    long toolType = std::strtol(parts[0].c_str(), &endPtr, 10);
+    if(endPtr == parts[0].c_str() || *endPtr != '\0'){
+        return false;
+    }
+    long action = std::strtol(parts[1].c_str(), &endPtr, 10);
+    if(endPtr == parts[1].c_str() || *endPtr != '\0'){
+        return false;
+    }
+    long x = std::strtol(parts[2].c_str(), &endPtr, 10);
+    if(endPtr == parts[2].c_str() || *endPtr != '\0'){
+        return false;
+    }
+    long y = std::strtol(parts[3].c_str(), &endPtr, 10);
+    if(endPtr == parts[3].c_str() || *endPtr != '\0'){
+        return false;
+    }
+    double pressure = std::strtod(parts[4].c_str(), &endPtr);
+    if(endPtr == parts[4].c_str()){
+        return false;
+    }
+
+    accessoryEventData->toolType = static_cast<int>(toolType);
+    accessoryEventData->action = static_cast<int>(action);
+    accessoryEventData->x = static_cast<int>(x);
+    accessoryEventData->y = static_cast<int>(y);
+    accessoryEventData->pressure = static_cast<float>(pressure);
+    return true;
+}
+
 void accessory_main(accessory_t * acc, VirtualStylus* virtualStylus)
 {
     int ret = 0;
