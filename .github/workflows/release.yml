@@ -24,7 +24,9 @@ jobs:
 
       - name: Create version tag
         id: tagger
+
         uses: anothrnick/github-tag-action@v1
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BUMP: patch
